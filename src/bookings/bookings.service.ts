@@ -1,12 +1,23 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Booking, BookingStatus } from './entities/booking.entity';
 import { Room } from '../rooms/entities/room.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
 @Injectable()
 export class BookingsService {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    @InjectRepository(Booking)
+    private bookingsRepository: Repository<Booking>,
+  ) {}
 
   async create(dto: CreateBookingDto, customerId: string): Promise<Booking> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -14,7 +25,6 @@ export class BookingsService {
     await queryRunner.startTransaction();
 
     try {
-      // BƯỚC 1: Khoá dòng phòng này lại — ai khác đặt cùng phòng phải chờ
       const room = await queryRunner.manager
         .createQueryBuilder(Room, 'room')
         .setLock('pessimistic_write')
@@ -25,7 +35,6 @@ export class BookingsService {
         throw new NotFoundException('Không tìm thấy phòng');
       }
 
-      // BƯỚC 2: Trong lúc đang khoá, kiểm tra có booking nào trùng ngày chưa
       const overlapping = await queryRunner.manager
         .createQueryBuilder(Booking, 'booking')
         .where('booking.roomId = :roomId', { roomId: dto.roomId })
@@ -46,7 +55,6 @@ export class BookingsService {
         );
       }
 
-      // BƯỚC 3: Không trùng -> tính tiền và tạo booking mới
       const nights = Math.ceil(
         (new Date(dto.checkOutDate).getTime() -
           new Date(dto.checkInDate).getTime()) /
@@ -64,15 +72,53 @@ export class BookingsService {
       });
       const saved = await queryRunner.manager.save(booking);
 
-      // BƯỚC 4: Mọi thứ ổn -> xác nhận (commit), nhả khoá
       await queryRunner.commitTransaction();
       return saved;
     } catch (error) {
-      // Có lỗi bất kỳ đâu -> huỷ hết (rollback), không lưu gì cả
       await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();
     }
+  }
+
+  findAllForOwner(ownerId: string): Promise<Booking[]> {
+    return this.bookingsRepository.find({
+      relations: { room: true, customer: true },
+      where: { room: { ownerId } },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  findAllForCustomer(customerId: string): Promise<Booking[]> {
+    return this.bookingsRepository.find({
+      relations: { room: true },
+      where: { customerId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateStatus(
+    bookingId: string,
+    newStatus: BookingStatus.APPROVED | BookingStatus.REJECTED,
+    ownerId: string,
+  ): Promise<Booking> {
+    const booking = await this.bookingsRepository.findOne({
+      where: { id: bookingId },
+      relations: { room: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
+    }
+    if (booking.room.ownerId !== ownerId) {
+      throw new ForbiddenException('Bạn không có quyền xử lý booking này');
+    }
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new BadRequestException('Booking này đã được xử lý trước đó');
+    }
+
+    booking.status = newStatus;
+    return this.bookingsRepository.save(booking);
   }
 }
