@@ -32,6 +32,7 @@ export class Room {
   @Column({ name: 'max_guests', type: 'int', default: 2 })
   maxGuests!: number;
 
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

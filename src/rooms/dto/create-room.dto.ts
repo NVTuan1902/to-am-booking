@@ -14,4 +14,5 @@ export class CreateRoomDto {
   @IsNumber()
   @Min(1, { message: 'Số khách tối đa phải ít nhất 1' })
   maxGuests!: number;
+
 }

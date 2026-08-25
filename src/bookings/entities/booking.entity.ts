@@ -14,6 +14,7 @@ export enum BookingStatus {
   APPROVED = 'approved',
   REJECTED = 'rejected',
   CANCELLED = 'cancelled',
+  PAID = 'paid',
 }
 
 @Entity('bookings')
@@ -46,6 +47,7 @@ export class Booking {
 
   @Column({ name: 'total_price', type: 'decimal', precision: 12, scale: 0 })
   totalPrice!: number;
+
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

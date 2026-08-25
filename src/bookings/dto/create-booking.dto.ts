@@ -9,4 +9,5 @@ export class CreateBookingDto {
 
   @IsDateString({}, { message: 'Ngày trả phòng không hợp lệ' })
   checkOutDate!: string;
+
 }

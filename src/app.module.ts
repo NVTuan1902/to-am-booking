@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { PaymentsModule } from './payments/payment.module';
 
 
 @Module({
@@ -28,6 +29,7 @@ import { BookingsModule } from './bookings/bookings.module';
     AuthModule,
     RoomsModule,
     BookingsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

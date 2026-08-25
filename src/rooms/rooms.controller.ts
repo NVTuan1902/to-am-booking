@@ -20,4 +20,5 @@ export class RoomsController {
   findAll() {
     return this.roomsService.findAll();
   }
+
 }
